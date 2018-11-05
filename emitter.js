@@ -11,6 +11,18 @@ const isStar = true;
  * @returns {Object}
  */
 function getEmitter() {
+    let events = {};
+
+    function createEvent(context, handler, times = Infinity, frequency = 1) {
+        return { context, handler, times, frequency, count: 0 };
+    }
+
+    function checkEvent(event) {
+        if (!events[event]) {
+            events[event] = [];
+        }
+    }
+
     return {
 
         /**
@@ -20,7 +32,10 @@ function getEmitter() {
          * @param {Function} handler
          */
         on: function (event, context, handler) {
-            console.info(event, context, handler);
+            checkEvent(event);
+            events[event].push(createEvent(context, handler));
+
+            return this;
         },
 
         /**
@@ -29,7 +44,13 @@ function getEmitter() {
          * @param {Object} context
          */
         off: function (event, context) {
-            console.info(event, context);
+            for (let key in events) {
+                if (key === event || key.startsWith(event + '.')) {
+                    events[key] = events[key].filter(element => element.context !== context);
+                }
+            }
+
+            return this;
         },
 
         /**
@@ -37,7 +58,20 @@ function getEmitter() {
          * @param {String} event
          */
         emit: function (event) {
-            console.info(event);
+            do {
+                if (events.hasOwnProperty(event)) {
+                    events[event].forEach(element => {
+                        if (element.times > 0 && element.count % element.frequency === 0) {
+                            element.handler.call(element.context);
+                            element.times--;
+                        }
+                        element.count++;
+                    });
+                }
+                event = event.substring(0, event.lastIndexOf('.'));
+            } while (event !== '');
+
+            return this;
         },
 
         /**
@@ -49,7 +83,10 @@ function getEmitter() {
          * @param {Number} times – сколько раз получить уведомление
          */
         several: function (event, context, handler, times) {
-            console.info(event, context, handler, times);
+            checkEvent(event);
+            events[event].push(createEvent(context, handler, times));
+
+            return this;
         },
 
         /**
@@ -61,7 +98,10 @@ function getEmitter() {
          * @param {Number} frequency – как часто уведомлять
          */
         through: function (event, context, handler, frequency) {
-            console.info(event, context, handler, frequency);
+            checkEvent(event);
+            events[event].push(createEvent(context, handler, Infinity, frequency));
+
+            return this;
         }
     };
 }
